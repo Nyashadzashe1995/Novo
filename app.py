@@ -1327,29 +1327,10 @@ def render_chat(lead_id: int) -> None:
 
     e1, e2, e3, e4 = st.columns(4)
 
-    examples = [
-        (
-            "Rental lead",
-            "My name is James and my email is james@example.com. "
-            "I want to rent a 2-bedroom apartment in Claremont. "
-            "My budget is R12,000 and I need it this week.",
-        ),
-        (
-            "Buyer lead",
-            "I want to buy a 3-bedroom house in Sandton. "
-            "Budget around R2.5 million. My phone is +27821234567.",
-        ),
-        (
-            "Book viewing",
-            "Can I view the first one tomorrow afternoon?",
-        ),
-        (
-            "Notify client",
-            "Send me the booking details by email and WhatsApp.",
-        ),
+    
     ]
 
-    for col, (label, prompt) in zip([e1, e2, e3, e4], examples):
+    for col, (label, prompt) in zip([e1, e2, e3, e4]):
         with col:
             if st.button(label, use_container_width=True):
                 agent_orchestrator(lead_id, prompt)
