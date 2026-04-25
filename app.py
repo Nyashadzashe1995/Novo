@@ -1286,11 +1286,7 @@ def page_setup() -> None:
         </style>
 
         <p class="big-title">🏡 Autonomous Real Estate Operations Agent</p>
-        <p class="subtitle">
-            SQLite-backed Streamlit demo for lead qualification, context memory,
-            listing recommendation, viewing booking, email/WhatsApp notifications,
-            CRM updates and business metrics.
-        </p>
+    
 
         <span class="pill">SQLite Persistence</span>
         <span class="pill">Context Management</span>
@@ -1371,7 +1367,7 @@ def render_chat(lead_id: int) -> None:
 
     if messages.empty:
         greeting = (
-            "Good day. I am Novo real estate assistant. "
+            "Good day, I am Novo real estate assistant. "
             "How can I assist?"
         )
         add_message(lead_id, "assistant", greeting)
