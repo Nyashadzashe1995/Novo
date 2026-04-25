@@ -23,7 +23,6 @@ AGENCY = {
     "email": "bookings@novodemo.co.za",
     "phone": "+27 11 000 1234",
     "whatsapp": "+27 78 660 8755",
-    "address": "Remote-first real estate operations desk",
 }
 
 DEFAULT_HUMAN_AGENT = {
@@ -35,18 +34,18 @@ DEFAULT_HUMAN_AGENT = {
 }
 
 KNOWN_LOCATIONS = [
-    "Claremont",
-    "Rondebosch",
-    "Sandton",
-    "Bryanston",
-    "Hatfield",
-    "Midrand",
-    "Sea point",
-    "Bloemfontein",
-    "Cape town",
-    "Johannesburg",
-    "Pretoria",
-    "Durban",
+    "claremont",
+    "rondebosch",
+    "sandton",
+    "bryanston",
+    "hatfield",
+    "midrand",
+    "sea point",
+    "bloemfontein",
+    "cape town",
+    "johannesburg",
+    "pretoria",
+    "durban",
 ]
 
 PROPERTY_TYPES = ["apartment", "flat", "house", "townhouse"]
@@ -105,8 +104,7 @@ def init_db() -> None:
     conn = get_conn()
     cur = conn.cursor()
 
-    cur.execute(
-        """
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS leads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             full_name TEXT DEFAULT 'Demo Lead',
@@ -129,11 +127,9 @@ def init_db() -> None:
             created_at TEXT,
             updated_at TEXT
         )
-        """
-    )
+    """)
 
-    cur.execute(
-        """
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS properties (
             id INTEGER PRIMARY KEY,
             title TEXT,
@@ -153,11 +149,9 @@ def init_db() -> None:
             agent_phone TEXT,
             agent_whatsapp TEXT
         )
-        """
-    )
+    """)
 
-    cur.execute(
-        """
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lead_id INTEGER,
@@ -165,11 +159,9 @@ def init_db() -> None:
             content TEXT,
             created_at TEXT
         )
-        """
-    )
+    """)
 
-    cur.execute(
-        """
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS appointments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lead_id INTEGER,
@@ -184,11 +176,9 @@ def init_db() -> None:
             status TEXT DEFAULT 'requested',
             created_at TEXT
         )
-        """
-    )
+    """)
 
-    cur.execute(
-        """
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS agent_actions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lead_id INTEGER,
@@ -197,11 +187,9 @@ def init_db() -> None:
             status TEXT DEFAULT 'success',
             created_at TEXT
         )
-        """
-    )
+    """)
 
-    cur.execute(
-        """
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS outbox (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lead_id INTEGER,
@@ -214,8 +202,7 @@ def init_db() -> None:
             provider_response TEXT,
             created_at TEXT
         )
-        """
-    )
+    """)
 
     conn.commit()
     seed_properties(conn)
@@ -227,7 +214,7 @@ def seed_properties(conn: sqlite3.Connection) -> None:
     if existing > 0:
         return
 
-    synthetic_properties = [
+    properties = [
         {
             "id": 1,
             "title": "Modern 2 Bedroom Apartment in Claremont",
@@ -350,7 +337,7 @@ def seed_properties(conn: sqlite3.Connection) -> None:
         },
     ]
 
-    for prop in synthetic_properties:
+    for prop in properties:
         conn.execute(
             """
             INSERT INTO properties (
@@ -421,7 +408,7 @@ def reset_database() -> None:
 
 
 # ============================================================
-# AGENT MEMORY AND CRM HELPERS
+# MEMORY AND LOGGING
 # ============================================================
 
 def add_message(lead_id: int, role: str, content: str) -> None:
@@ -434,12 +421,7 @@ def add_message(lead_id: int, role: str, content: str) -> None:
     )
 
 
-def log_action(
-    lead_id: int,
-    action_type: str,
-    payload: str,
-    status: str = "success",
-) -> None:
+def log_action(lead_id: int, action_type: str, payload: str, status: str = "success") -> None:
     execute(
         """
         INSERT INTO agent_actions (lead_id, action_type, payload, status, created_at)
@@ -469,7 +451,7 @@ def get_latest_appointment(lead_id: int) -> Optional[sqlite3.Row]:
 
 
 # ============================================================
-# EXTRACTION TOOLS
+# EXTRACTION
 # ============================================================
 
 def extract_contact_details(message: str) -> Dict[str, str]:
@@ -495,10 +477,6 @@ def extract_contact_details(message: str) -> Dict[str, str]:
 
 
 def extract_lead_preferences(message: str) -> Dict[str, Any]:
-    """
-    Deterministic extractor for a free public demo.
-    In production, replace this with LLM structured output.
-    """
     text = message.lower()
     data: Dict[str, Any] = {}
 
@@ -530,10 +508,7 @@ def extract_lead_preferences(message: str) -> Dict[str, Any]:
         if money_match:
             data["budget"] = float(money_match.group(1).replace(",", ""))
 
-    if any(
-        word in text
-        for word in ["today", "tomorrow", "this week", "weekend", "urgent", "as soon as possible"]
-    ):
+    if any(word in text for word in ["today", "tomorrow", "this week", "weekend", "urgent"]):
         data["timeline"] = "urgent"
     elif any(word in text for word in ["month", "next month", "soon"]):
         data["timeline"] = "within_30_days"
@@ -566,7 +541,7 @@ def extract_time_phrase(message: str) -> str:
 
 
 # ============================================================
-# LEAD SCORING AND MATCHING
+# LEAD SCORING AND PROPERTY MATCHING
 # ============================================================
 
 def calculate_lead_score(lead: sqlite3.Row) -> int:
@@ -713,21 +688,16 @@ def build_missing_info_question(lead: sqlite3.Row) -> str:
     return "To help you properly, please share " + " and ".join(missing[:2]) + "."
 
 
-def build_property_recommendation(
-    lead: sqlite3.Row,
-    matches: pd.DataFrame,
-    fallback_used: bool = False,
-) -> str:
+def build_property_recommendation(lead: sqlite3.Row, matches: pd.DataFrame, fallback_used: bool = False) -> str:
     if matches.empty:
         return (
             "I could not find an exact available listing for your current requirements. "
             "Would you like me to broaden the area, increase the budget slightly, or show nearby alternatives?"
         )
 
+    intro = "I found the best available options for you"
     if fallback_used:
         intro = "I could not find a perfect match, but I found the closest available alternatives"
-    else:
-        intro = "I found the best available options for you"
 
     lines = [intro + ":\n"]
 
@@ -738,34 +708,21 @@ def build_property_recommendation(
             f"{prop['bathrooms']} bath | {prop['size_sqm']} sqm\n"
             f"   Location: {prop['location']}\n"
             f"   Summary: {prop['description']}\n"
-            f"   Listing: {prop['listing_url']}\n"
         )
 
-    lines.append(
-        "You can say: 'book the first one tomorrow afternoon' or "
-        "'send me the details by email and WhatsApp'."
-    )
-
+    lines.append("You can ask me to book a viewing or send the details by email or WhatsApp.")
     return "\n".join(lines)
 
 
 # ============================================================
-# INTENT AND CONTEXT MANAGEMENT
+# INTENT AND CONTEXT
 # ============================================================
 
 def message_indicates_booking(message: str) -> bool:
     text = message.lower()
     return any(
         phrase in text
-        for phrase in [
-            "book",
-            "viewing",
-            "schedule",
-            "appointment",
-            "visit",
-            "see the property",
-            "view the",
-        ]
+        for phrase in ["book", "viewing", "schedule", "appointment", "visit", "see the property", "view the"]
     )
 
 
@@ -773,50 +730,23 @@ def message_requests_notification(message: str) -> bool:
     text = message.lower()
     return any(
         phrase in text
-        for phrase in [
-            "email",
-            "whatsapp",
-            "send me",
-            "message me",
-            "notify",
-            "details",
-        ]
+        for phrase in ["email", "whatsapp", "send me", "message me", "notify", "details"]
     )
 
 
 def message_is_ambiguous_reference(message: str) -> bool:
     text = message.lower().strip()
 
-    if text in [
-        "yes",
-        "ok",
-        "okay",
-        "sure",
-        "that one",
-        "the one",
-        "first one",
-        "second one",
-        "third one",
-    ]:
+    if text in ["yes", "ok", "okay", "sure", "that one", "the one", "first one", "second one", "third one"]:
         return True
 
     return any(
         phrase in text
-        for phrase in [
-            "what about it",
-            "what about that",
-            "what about the first",
-            "what about the second",
-            "what about the third",
-        ]
+        for phrase in ["what about it", "what about that", "what about the first", "what about the second"]
     )
 
 
-def select_property_from_message(
-    lead_id: int,
-    message: str,
-    matches: pd.DataFrame,
-) -> Optional[int]:
+def select_property_from_message(lead_id: int, message: str, matches: pd.DataFrame) -> Optional[int]:
     text = message.lower()
 
     id_match = re.search(r"(?:property|listing)\s*(\d+)", text)
@@ -839,14 +769,10 @@ def select_property_from_message(
 
 
 # ============================================================
-# BOOKING, EMAIL AND WHATSAPP TOOLS
+# BOOKING AND NOTIFICATIONS
 # ============================================================
 
-def create_appointment(
-    lead_id: int,
-    property_id: Optional[int],
-    requested_time: str,
-) -> int:
+def create_appointment(lead_id: int, property_id: Optional[int], requested_time: str) -> int:
     lead = get_current_lead(lead_id)
     prop = fetchone("SELECT * FROM properties WHERE id = ?", (property_id,)) if property_id else None
 
@@ -884,11 +810,8 @@ def create_appointment(
     return appointment_id
 
 
-def get_appointment_bundle(
-    appointment_id: int,
-) -> Tuple[sqlite3.Row, sqlite3.Row, sqlite3.Row]:
+def get_appointment_bundle(appointment_id: int) -> Tuple[sqlite3.Row, sqlite3.Row, sqlite3.Row]:
     appointment = fetchone("SELECT * FROM appointments WHERE id = ?", (appointment_id,))
-
     if appointment is None:
         raise RuntimeError("Appointment not found")
 
@@ -911,7 +834,7 @@ def build_email_body(appointment_id: int) -> Tuple[str, str, str]:
 
 Thank you for your interest in {prop['title']}.
 
-Your viewing request has been captured with the following details:
+Your viewing request has been captured.
 
 Property: {prop['title']}
 Location: {prop['location']}
@@ -920,13 +843,11 @@ Price: R{prop['price']:,.0f}
 Requested time: {appointment['requested_time']}
 Status: {appointment['status']}
 
-Your property consultant:
+Property consultant:
 Name: {prop['agent_name']}
 Email: {prop['agent_email']}
 Phone: {prop['agent_phone']}
 WhatsApp: {prop['agent_whatsapp']}
-
-Please reply to confirm your preferred exact time, or contact the consultant directly.
 
 Kind regards,
 {AGENCY['name']}
@@ -955,17 +876,7 @@ def save_outbox(
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (
-            lead_id,
-            appointment_id,
-            channel,
-            recipient,
-            subject,
-            body,
-            status,
-            provider_response,
-            now(),
-        ),
+        (lead_id, appointment_id, channel, recipient, subject, body, status, provider_response, now()),
     )
 
 
@@ -976,22 +887,7 @@ def get_secret_value(name: str, default: Any = None) -> Any:
         return default
 
 
-def send_real_email_if_enabled(
-    recipient: str,
-    subject: str,
-    body: str,
-) -> Tuple[str, str]:
-    """
-    Safe by default.
-
-    To actually send email, add Streamlit secrets:
-    SMTP_HOST
-    SMTP_PORT
-    SMTP_USER
-    SMTP_PASSWORD
-    SMTP_FROM
-    ENABLE_REAL_EMAIL = true
-    """
+def send_real_email_if_enabled(recipient: str, subject: str, body: str) -> Tuple[str, str]:
     enabled = bool(get_secret_value("ENABLE_REAL_EMAIL", False))
 
     if not enabled:
@@ -1028,25 +924,10 @@ def create_email_notification(lead_id: int, appointment_id: int) -> str:
     recipient, subject, body = build_email_body(appointment_id)
     status, provider_response = send_real_email_if_enabled(recipient, subject, body)
 
-    save_outbox(
-        lead_id=lead_id,
-        appointment_id=appointment_id,
-        channel="email",
-        recipient=recipient,
-        subject=subject,
-        body=body,
-        status=status,
-        provider_response=provider_response,
-    )
+    save_outbox(lead_id, appointment_id, "email", recipient, subject, body, status, provider_response)
+    log_action(lead_id, "email_notification_created", f"recipient={recipient}; status={status}", status)
 
-    log_action(
-        lead_id,
-        "email_notification_created",
-        f"recipient={recipient}; status={status}",
-        status,
-    )
-
-    return f"Email notification {status}. Recipient: {recipient}. {provider_response}"
+    return f"Email notification {status}. Recipient: {recipient}."
 
 
 def create_whatsapp_notification(lead_id: int, appointment_id: int) -> str:
@@ -1064,59 +945,35 @@ def create_whatsapp_notification(lead_id: int, appointment_id: int) -> str:
 
     clean_number = re.sub(r"\D", "", recipient)
     whatsapp_link = "https://wa.me/" + clean_number + "?text=" + quote_plus(body)
-
     full_body = body + f"\n\nWhatsApp click-to-send link: {whatsapp_link}"
 
     save_outbox(
-        lead_id=lead_id,
-        appointment_id=appointment_id,
-        channel="whatsapp",
-        recipient=recipient,
-        subject="Viewing request WhatsApp message",
-        body=full_body,
-        status="drafted",
-        provider_response="WhatsApp Business API not configured. Click-to-send link generated.",
-    )
-
-    log_action(
         lead_id,
-        "whatsapp_notification_created",
-        f"recipient={recipient}",
+        appointment_id,
+        "whatsapp",
+        recipient,
+        "Viewing request WhatsApp message",
+        full_body,
         "drafted",
+        "WhatsApp Business API not configured. Click-to-send link generated.",
     )
 
-    return (
-        f"WhatsApp message drafted. Recipient: {recipient}. "
-        "A click-to-send link is available in the Outbox tab."
-    )
+    log_action(lead_id, "whatsapp_notification_created", f"recipient={recipient}", "drafted")
+
+    return f"WhatsApp message drafted. Recipient: {recipient}."
 
 
 # ============================================================
-# AUTONOMOUS AGENT ORCHESTRATOR
+# AGENT ORCHESTRATOR
 # ============================================================
 
 def agent_orchestrator(lead_id: int, message: str) -> str:
-    """
-    Main autonomous workflow:
-
-    1. Save user message.
-    2. Extract structured lead information.
-    3. Update SQLite CRM.
-    4. Score the lead.
-    5. Search matching listings.
-    6. Handle ambiguity using stored context.
-    7. Recommend properties.
-    8. Book viewing requests.
-    9. Draft email and WhatsApp notifications.
-    10. Log actions.
-    """
     add_message(lead_id, "user", message)
 
     extracted = extract_lead_preferences(message)
     update_lead_from_extraction(lead_id, extracted)
 
     lead = get_current_lead(lead_id)
-
     matches = search_matching_properties(lead)
     fallback_used = False
 
@@ -1130,22 +987,17 @@ def agent_orchestrator(lead_id: int, message: str) -> str:
         f"extracted={extracted}; score={lead['lead_score']}; stage={lead['lead_stage']}",
     )
 
-    response = ""
-
     if message_is_ambiguous_reference(message) and lead["selected_property_id"]:
-        prop = fetchone(
-            "SELECT * FROM properties WHERE id = ?",
-            (lead["selected_property_id"],),
-        )
+        prop = fetchone("SELECT * FROM properties WHERE id = ?", (lead["selected_property_id"],))
 
         if prop:
             response = (
                 f"Do you mean {prop['title']} in {prop['location']}? "
                 f"It is available at R{prop['price']:,.0f}. "
-                "You can say 'book it tomorrow afternoon' or ask for more details."
+                "You can ask me to book a viewing or send the details."
             )
         else:
-            response = "I remember you referred to a previous listing, but I cannot find it now. Please choose a listing again."
+            response = "I remember the previous listing, but I cannot find it now. Please choose a listing again."
 
     elif message_requests_notification(message):
         appointment = get_latest_appointment(lead_id)
@@ -1164,8 +1016,8 @@ def agent_orchestrator(lead_id: int, message: str) -> str:
 
         else:
             response = (
-                "I can send the booking details, but first I need to create a viewing request. "
-                "Please say which property you want to view and your preferred time."
+                "I can send the details, but first I need to create a viewing request. "
+                "Please tell me which property you want to view and your preferred time."
             )
 
     elif message_indicates_booking(message):
@@ -1182,7 +1034,7 @@ def agent_orchestrator(lead_id: int, message: str) -> str:
             if property_id is None:
                 response = (
                     "I can request a viewing, but I need to know which listing you mean. "
-                    "Please say 'first one', 'second one', or give the listing number."
+                    "Please say first one, second one, or give the listing number."
                 )
             else:
                 requested_time = extract_time_phrase(message)
@@ -1191,17 +1043,8 @@ def agent_orchestrator(lead_id: int, message: str) -> str:
                 prop = fetchone("SELECT * FROM properties WHERE id = ?", (property_id,))
                 lead = get_current_lead(lead_id)
 
-                email_status = (
-                    create_email_notification(lead_id, appointment_id)
-                    if lead["email"]
-                    else "No email address captured."
-                )
-
-                whatsapp_status = (
-                    create_whatsapp_notification(lead_id, appointment_id)
-                    if lead["phone"]
-                    else "No phone number captured."
-                )
+                email_status = create_email_notification(lead_id, appointment_id) if lead["email"] else "No email address captured."
+                whatsapp_status = create_whatsapp_notification(lead_id, appointment_id) if lead["phone"] else "No phone number captured."
 
                 response = (
                     f"Viewing request created for {prop['title']}.\n\n"
@@ -1221,11 +1064,7 @@ def agent_orchestrator(lead_id: int, message: str) -> str:
             (selected_id, now(), lead_id),
         )
 
-        response = build_property_recommendation(
-            lead,
-            matches,
-            fallback_used=fallback_used,
-        )
+        response = build_property_recommendation(lead, matches, fallback_used=fallback_used)
 
     else:
         response = build_missing_info_question(lead)
@@ -1234,7 +1073,7 @@ def agent_orchestrator(lead_id: int, message: str) -> str:
 
     if lead["human_handoff_required"]:
         response += (
-            "\n\nI have also flagged this as a high-priority lead for the assigned property consultant, "
+            "\n\nThis lead has been marked as high priority for the assigned consultant, "
             f"{lead['assigned_agent_name']}."
         )
 
@@ -1248,7 +1087,7 @@ def agent_orchestrator(lead_id: int, message: str) -> str:
 
 def page_setup() -> None:
     st.set_page_config(
-        page_title="Novo Autonomous Real Estate Agent",
+        page_title="Novo Real Estate Assistant",
         page_icon="🏡",
         layout="wide",
     )
@@ -1266,29 +1105,13 @@ def page_setup() -> None:
                 color: #5B6475;
                 margin-top: 4px;
             }
-            .pill {
-                display: inline-block;
-                padding: 6px 12px;
-                border-radius: 999px;
-                background: #EEF2FF;
-                color: #3444C5;
-                font-weight: 700;
-                margin-right: 8px;
-                margin-bottom: 8px;
-            }
-            .warning-box {
-                background: #fff7ed;
-                border: 1px solid #fed7aa;
-                padding: 12px;
-                border-radius: 12px;
-                color: #7c2d12;
-            }
         </style>
 
-        <p class="big-title">🏡 Autonomous Real Estate Operations Agent</p>
-    
-
-        
+        <p class="big-title">🏡 Novo Real Estate Assistant</p>
+        <p class="subtitle">
+            Autonomous real estate assistant for lead qualification, property matching,
+            viewing requests, email drafts, WhatsApp drafts and CRM updates.
+        </p>
         """,
         unsafe_allow_html=True,
     )
@@ -1296,37 +1119,20 @@ def page_setup() -> None:
 
 def render_metrics(lead_id: int) -> None:
     lead = get_current_lead(lead_id)
+    appointments = query_df("SELECT * FROM appointments WHERE lead_id = ?", (lead_id,))
+    outbox = query_df("SELECT * FROM outbox WHERE lead_id = ?", (lead_id,))
 
-    appointments = query_df(
-        "SELECT * FROM appointments WHERE lead_id = ?",
-        (lead_id,),
-    )
-
-    outbox = query_df(
-        "SELECT * FROM outbox WHERE lead_id = ?",
-        (lead_id,),
-    )
-
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    c1, c2, c3, c4, c5 = st.columns(5)
 
     c1.metric("Lead Score", f"{lead['lead_score']}/100")
     c2.metric("Lead Stage", lead["lead_stage"])
     c3.metric("Viewings", len(appointments))
     c4.metric("Messages", len(outbox))
-    c5.metric("Handoff", "Yes" if lead["human_handoff_required"] else "No")
-    c6.metric("Selected Listing", lead["selected_property_id"] or "None")
+    c5.metric("Selected Listing", lead["selected_property_id"] or "None")
 
 
 def render_chat(lead_id: int) -> None:
-    st.subheader("💬 Autonomous Agent Conversation")
-
-    e1, e2, e3, e4 = st.columns(4)
-
-    for col, (label, prompt) in zip([e1, e2, e3, e4]):
-        with col:
-            if st.button(label, use_container_width=True):
-                agent_orchestrator(lead_id, prompt)
-                st.rerun()
+    st.subheader("💬 Agent Chat")
 
     messages = query_df(
         """
@@ -1339,10 +1145,7 @@ def render_chat(lead_id: int) -> None:
     )
 
     if messages.empty:
-        greeting = (
-            "Good day, I am Novo real estate assistant. "
-            "How can I assist?"
-        )
+        greeting = "Good day, I am Novo real estate assistant. How can I assist you today?"
         add_message(lead_id, "assistant", greeting)
         st.rerun()
 
@@ -1350,7 +1153,7 @@ def render_chat(lead_id: int) -> None:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-    user_message = st.chat_input("Tell the agent what you need, or ask to book/send details.")
+    user_message = st.chat_input("Type your message here.")
 
     if user_message:
         agent_orchestrator(lead_id, user_message)
@@ -1358,12 +1161,9 @@ def render_chat(lead_id: int) -> None:
 
 
 def render_crm(lead_id: int) -> None:
-    st.subheader("📇 SQLite CRM Lead Record")
+    st.subheader("📇 CRM Lead Record")
 
-    lead_df = query_df(
-        "SELECT * FROM leads WHERE id = ?",
-        (lead_id,),
-    )
+    lead_df = query_df("SELECT * FROM leads WHERE id = ?", (lead_id,))
 
     st.dataframe(
         lead_df.T.rename(columns={0: "Value"}),
@@ -1404,11 +1204,7 @@ def render_listings(lead_id: int) -> None:
         """
     )
 
-    st.dataframe(
-        properties,
-        use_container_width=True,
-        hide_index=True,
-    )
+    st.dataframe(properties, use_container_width=True, hide_index=True)
 
     st.subheader("🎯 Current Best Matches")
 
@@ -1435,9 +1231,7 @@ def render_listings(lead_id: int) -> None:
             c4.metric("Size", f"{int(prop['size_sqm'])} sqm")
 
             st.caption(f"Viewing address: {prop['viewing_address']}")
-            st.caption(
-                f"Agent: {prop['agent_name']} | {prop['agent_email']} | {prop['agent_phone']}"
-            )
+            st.caption(f"Agent: {prop['agent_name']} | {prop['agent_email']} | {prop['agent_phone']}")
 
 
 def render_bookings_and_outbox(lead_id: int) -> None:
@@ -1456,11 +1250,7 @@ def render_bookings_and_outbox(lead_id: int) -> None:
     if appointments.empty:
         st.info("No booking yet.")
     else:
-        st.dataframe(
-            appointments,
-            use_container_width=True,
-            hide_index=True,
-        )
+        st.dataframe(appointments, use_container_width=True, hide_index=True)
 
     st.subheader("📨 Email / WhatsApp Outbox")
 
@@ -1479,45 +1269,24 @@ def render_bookings_and_outbox(lead_id: int) -> None:
         return
 
     st.dataframe(
-        outbox[
-            [
-                "id",
-                "channel",
-                "recipient",
-                "subject",
-                "status",
-                "provider_response",
-                "created_at",
-            ]
-        ],
+        outbox[["id", "channel", "recipient", "subject", "status", "provider_response", "created_at"]],
         use_container_width=True,
         hide_index=True,
     )
 
-    selected_id = st.selectbox(
-        "Open outbox message",
-        outbox["id"].tolist(),
-    )
-
+    selected_id = st.selectbox("Open outbox message", outbox["id"].tolist())
     selected = outbox[outbox["id"] == selected_id].iloc[0]
 
-    st.text_area(
-        "Message body",
-        selected["body"],
-        height=280,
-    )
+    st.text_area("Message body", selected["body"], height=280)
 
     if selected["channel"] == "whatsapp" and "https://wa.me/" in selected["body"]:
         link = re.search(r"https://wa\.me/[^\s]+", selected["body"])
         if link:
-            st.link_button(
-                "Open WhatsApp click-to-send",
-                link.group(0),
-            )
+            st.link_button("Open WhatsApp click-to-send", link.group(0))
 
 
 def render_actions(lead_id: int) -> None:
-    st.subheader("🧠 Agent Action")
+    st.subheader("🧠 Agent Actions")
 
     actions = query_df(
         """
@@ -1532,27 +1301,7 @@ def render_actions(lead_id: int) -> None:
     if actions.empty:
         st.info("No actions logged yet.")
     else:
-        st.dataframe(
-            actions,
-            use_container_width=True,
-            hide_index=True,
-        )
-
-
-
-
-    st.markdown(
-        """
-        <div class="warning-box">
-        This demo automates front-office real estate operations, but a production system should still include
-        human oversight for legal contracts, final price negotiation, identity checks, regulatory disclosures,
-        physical property access and signed lease or offer-to-purchase agreements.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
+        st.dataframe(actions, use_container_width=True, hide_index=True)
 
 
 # ============================================================
@@ -1580,35 +1329,15 @@ def main() -> None:
         st.write(AGENCY["phone"])
         st.write(f"WhatsApp: {AGENCY['whatsapp']}")
 
-        st.markdown("---")
-        st.subheader("What this assistant does")
-        st.write(
-            """
-            - Captures lead details
-            - Handles ambiguous follow-ups
-            - Recommends listings
-            - Books viewing requests
-            - Drafts email/WhatsApp details
-            - Logs all actions
-            - Stores everything in SQLite
-            - Remembers context
-            """
-        )
-
-        st.markdown("---")
-        st.info(
-            "Email and WhatsApp are safely drafted. "
-        )
-
     render_metrics(lead_id)
 
-    tab1, tab2, tab3, tab4, tab5= st.tabs(
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(
         [
             "Agent Chat",
             "CRM & Score",
             "Listings & Matches",
             "Bookings & Outbox",
-            "Agent Actions"
+            "Agent Actions",
         ]
     )
 
@@ -1626,8 +1355,6 @@ def main() -> None:
 
     with tab5:
         render_actions(lead_id)
-
-
 
 
 if __name__ == "__main__":
