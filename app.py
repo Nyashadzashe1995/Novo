@@ -1315,10 +1315,7 @@ def main() -> None:
     page_setup()
 
     with st.sidebar:
-        st.header("Demo Controls")
-        st.write(f"Active Lead ID: {lead_id}")
-
-        if st.button("Reset SQLite demo", use_container_width=True):
+        if st.button("Reset Assistant", use_container_width=True):
             reset_database()
             st.rerun()
 
