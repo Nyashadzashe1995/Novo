@@ -1288,12 +1288,7 @@ def page_setup() -> None:
         <p class="big-title">🏡 Autonomous Real Estate Operations Agent</p>
     
 
-        <span class="pill">SQLite Persistence</span>
-        <span class="pill">Context Management</span>
-        <span class="pill">Autonomous Booking</span>
-        <span class="pill">Email Outbox</span>
-        <span class="pill">WhatsApp Drafts</span>
-        <span class="pill">CRM Workflow</span>
+        
         """,
         unsafe_allow_html=True,
     )
@@ -1326,9 +1321,6 @@ def render_chat(lead_id: int) -> None:
     st.subheader("💬 Autonomous Agent Conversation")
 
     e1, e2, e3, e4 = st.columns(4)
-
-    
-    ]
 
     for col, (label, prompt) in zip([e1, e2, e3, e4]):
         with col:
