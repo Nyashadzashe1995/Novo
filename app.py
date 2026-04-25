@@ -19,7 +19,7 @@ import streamlit as st
 DB_PATH = Path("novo_real_estate_agent.db")
 
 AGENCY = {
-    "name": "Novo Demo Realty",
+    "name": "Novo Realty",
     "email": "bookings@novodemo.co.za",
     "phone": "+27 11 000 1234",
     "whatsapp": "+27 78 660 8755",
@@ -35,18 +35,18 @@ DEFAULT_HUMAN_AGENT = {
 }
 
 KNOWN_LOCATIONS = [
-    "claremont",
-    "rondebosch",
-    "sandton",
-    "bryanston",
-    "hatfield",
-    "midrand",
-    "sea point",
-    "bloemfontein",
-    "cape town",
-    "johannesburg",
-    "pretoria",
-    "durban",
+    "Claremont",
+    "Rondebosch",
+    "Sandton",
+    "Bryanston",
+    "Hatfield",
+    "Midrand",
+    "Sea point",
+    "Bloemfontein",
+    "Cape town",
+    "Johannesburg",
+    "Pretoria",
+    "Durban",
 ]
 
 PROPERTY_TYPES = ["apartment", "flat", "house", "townhouse"]
@@ -1371,10 +1371,8 @@ def render_chat(lead_id: int) -> None:
 
     if messages.empty:
         greeting = (
-            "Good day. I am the autonomous property assistant. "
-            "I can qualify your needs, recommend listings, request viewings, "
-            "and prepare email/WhatsApp booking details. "
-            "Please tell me what you are looking for."
+            "Good day. I am Novo real estate assistant. "
+            "How can I assist?"
         )
         add_message(lead_id, "assistant", greeting)
         st.rerun()
